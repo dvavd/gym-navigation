@@ -7,3 +7,7 @@ register(
 register(
     id='NavigationGoal-v0',
     entry_point='gym_navigation.envs.navigation_goal:NavigationGoal')
+register(
+    id='NavigationTrackSafe-v0',
+    entry_point='gym_navigation.envs.navigation_track_safe:NavigationTrackSafe'
+)
