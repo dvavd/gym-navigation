@@ -5,10 +5,9 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pygame
-from gymnasium.spaces import Box, Discrete
+from gymnasium.spaces import Box
 from pygame import Surface
 
-from gym_navigation.enums.action import Action
 from gym_navigation.enums.color import Color
 from gym_navigation.envs.navigation import Navigation
 from gym_navigation.geometry.line import Line, NoIntersectionError
@@ -43,20 +42,28 @@ class NavigationTrack(Navigation):
 
         self._ranges = np.empty(self._N_MEASUREMENTS)
 
-        self.action_space = Discrete(len(Action))
+        self._action_space = Box(
+            low=np.array([-1.0, -1.0], dtype=np.float32),
+            high=np.array([1.0, 1.0], dtype=np.float32),
+            dtype=np.float32,
+        )
 
-        self.observation_space = Box(low=self._SCAN_RANGE_MIN,
+        self._observation_space = Box(low=self._SCAN_RANGE_MIN,
                                      high=self._SCAN_RANGE_MAX,
                                      shape=(self._N_OBSERVATIONS,),
                                      dtype=np.float64)
 
-    def _do_perform_action(self, action: int) -> None:
-        action_enum = Action(action)
-        theta = (self.np_random.normal(0, self._SHIFT_STANDARD_DEVIATION)
-                 + action_enum.angular_shift)
-        distance = (self.np_random.normal(0, self._SHIFT_STANDARD_DEVIATION)
-                    + action_enum.linear_shift)
-        self._pose.shift(distance, theta)
+    def _do_perform_action(self, action: np.ndarray) -> None:
+        """
+        Interpret action as: [linear_speed, angular_speed].
+        """
+        linear_speed = float(action[0])
+        angular_speed = float(action[1])
+
+        linear_speed += self.np_random.normal(0, self._SHIFT_STANDARD_DEVIATION)
+        angular_speed += self.np_random.normal(0, self._SHIFT_STANDARD_DEVIATION)
+
+        self._pose.shift(linear_speed, angular_speed)
         self._update_scan()
 
     def _update_scan(self) -> None:
@@ -105,15 +112,18 @@ class NavigationTrack(Navigation):
     def _collision_occurred(self) -> bool:
         return bool((self._ranges < self._COLLISION_THRESHOLD).any())
 
-    def _do_calculate_reward(self, action: int) -> float:
+    def _do_calculate_reward(self, action: np.ndarray) -> float:
         if self._collision_occurred():
-            reward = self._COLLISION_REWARD
-        elif action == Action.FORWARD.value:
-            reward = self._FORWARD_REWARD
-        else:
-            reward = self._ROTATION_REWARD
+            return self._COLLISION_REWARD
 
-        return reward
+        linear_speed = float(action[0])
+        angular_speed = float(action[1])
+
+        # reward shaping
+        forward_reward = self._FORWARD_REWARD * max(0.0, linear_speed)
+        rotation_penalty = self._ROTATION_REWARD * abs(angular_speed)
+
+        return forward_reward + rotation_penalty
 
     def _do_init_environment(self, options: Optional[dict] = None) -> None:
         self._init_pose()
@@ -161,3 +171,21 @@ class NavigationTrack(Navigation):
                     - round(point.y_coordinate * self._RESOLUTION)
                     + self._Y_OFFSET)
         return pygame_x, pygame_y
+
+    @property
+    def action_space(self):
+        """Read-only getter for the action space."""
+        return self._action_space
+
+    @action_space.setter
+    def action_space(self, new_space):
+        """Allows reassigning action_space if needed."""
+        self._action_space = new_space
+
+    @property
+    def observation_space(self):
+        return self._observation_space
+
+    @observation_space.setter
+    def observation_space(self, new_space):
+        self._observation_space = new_space

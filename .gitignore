@@ -7,4 +7,7 @@ gym_navigation.egg-info/
 *.log
 coverage/
 scripts/
+models/
+runs/
+logs/
 .coverage

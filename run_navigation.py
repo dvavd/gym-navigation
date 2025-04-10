@@ -1,5 +1,6 @@
 import gymnasium as gym
 
+
 # Create the environment
 env = gym.make('gym_navigation:NavigationTrack-v0', render_mode='human', track_id=1)
 

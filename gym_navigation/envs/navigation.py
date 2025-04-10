@@ -50,15 +50,19 @@ class Navigation(Env):
                 (self._WINDOW_SIZE, self._WINDOW_SIZE))
             self._clock = Clock()
 
-    def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, dict]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, dict]:
+        """
+        Accept a continuous action: [linear_speed, angular_speed].
+        Return (observation, reward, terminated, truncated, info).
+        """
         if not self.action_space.contains(action):
-            raise ValueError(f'Invalid action {action} ({type(action)})')
+            raise ValueError(f'Action {action} out of bounds {self.action_space}.')
 
         self._do_perform_action(action)
         observation = self._do_get_observation()
-        terminated = self._do_check_if_terminated()
-        truncated = False
         reward = self._do_calculate_reward(action)
+        terminated = self._do_check_if_terminated()
+        truncated = False  # or some logic
         info = self._do_create_info()
 
         if self.render_mode == "human":
@@ -67,7 +71,7 @@ class Navigation(Env):
         return observation, reward, terminated, truncated, info
 
     @abstractmethod
-    def _do_perform_action(self, action: int) -> None:
+    def _do_perform_action(self, action: np.ndarray) -> None:
         pass
 
     @abstractmethod
@@ -79,7 +83,7 @@ class Navigation(Env):
         pass
 
     @abstractmethod
-    def _do_calculate_reward(self, action: int) -> float:
+    def _do_calculate_reward(self, action: np.ndarray) -> float:
         pass
 
     @abstractmethod
