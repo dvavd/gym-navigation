@@ -7,7 +7,11 @@ import numpy as np
 import torch
 from gymnasium import spaces
 
-import omnisafe
+import pygame
+from gymnasium.core import RenderFrame
+
+from typing import Tuple, Optional, List, Dict, Any, Union
+
 from omnisafe.envs.core import CMDP, env_register
 from gym_navigation.envs.navigation_track import NavigationTrack
 
@@ -31,10 +35,26 @@ class NavigationTrackSafe(NavigationTrack, CMDP): # MRO matters here
     need_auto_reset_wrapper: bool = True
     need_time_limit_wrapper: bool = True
 
-    def __init__(self, env_id: str = "", **kwargs: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        env_id: str = "", 
+        device: str = 'cpu',
+        render_mode: str = 'rgb_array',
+        camera_name: str = None,
+        camera_id: int = None,
+
+        **kwargs: dict[str, Any]) -> None:
         """OmniSafe will pass env_id and possibly other config in kwargs."""
         kwargs.pop('num_envs', None)
         kwargs.pop('device', None)
+        kwargs.pop('camera_id', None)
+        kwargs.pop('width', 512)
+        kwargs.pop('height', 512)
+    
+        self._width = 700
+        self._height = 700
+        self._screen = None
+        self.render_mode = render_mode
 
         self._count = 0
 
@@ -110,9 +130,9 @@ class NavigationTrackSafe(NavigationTrack, CMDP): # MRO matters here
         random.seed(seed)
         np.random.seed(seed)
 
-    def render(self) -> Any:
-        """Optionally override if you want custom rendering."""
-        return super().render()
+    # def render(self) -> Any:
+    #     """Optionally override if you want custom rendering."""
+    #     return super().render()
     
     def close(self) -> None:
         super().close()
@@ -120,3 +140,25 @@ class NavigationTrackSafe(NavigationTrack, CMDP): # MRO matters here
     @property
     def action_space(self):
         return self._action_space
+    
+    def render(self) -> np.ndarray:
+        """
+        Render the environment as an RGB array for OmniSafe's evaluator.
+        Returns a numpy array representing the RGB image of the environment.
+        """
+        # Initialize pygame and screen if needed
+        if self._screen is None:
+            pygame.init()
+            self._screen = pygame.Surface((self._width, self._height))
+        
+        # Clear screen with white background
+        self._screen.fill((255, 255, 255))
+        
+        # Draw your environment
+        self._do_draw(self._screen)
+        
+        # Convert surface to numpy array
+        array = pygame.surfarray.array3d(self._screen)
+        # Convert from (width, height, 3) to (height, width, 3)
+        array = array.transpose((1, 0, 2))
+        return array
